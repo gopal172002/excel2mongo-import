@@ -1,0 +1,55 @@
+const mongoose = require('mongoose');
+const xlsx = require('xlsx');
+const Candidate = require('../model/user'); // Import your Mongoose model 
+require('dotenv').config();
+
+const URL = process.env.MONGO_URL;
+// Connect to your MongoDB database
+mongoose.connect(URL, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+  .then(() => {
+    console.log('Connected to MongoDB');
+    importData(); // Call the importData function after connecting to MongoDB
+  })
+  .catch((error) => {
+    console.error('Error connecting to MongoDB:', error);
+  });
+
+const importData = async () => {
+  try {
+    const excelFile = xlsx.readFile('./uploads/exell.xlsx');
+
+    // Assuming one sheet
+    const sheetName = excelFile.SheetNames[0];
+    const excelData = xlsx.utils.sheet_to_json(excelFile.Sheets[sheetName]);
+
+    // Insert each row data into MongoDB
+    for (const row of excelData) {
+      try {
+        const data = row;
+        
+        // Check if a document with the same email already exists
+        const existingDocument = await Candidate.findOne({ email: data.email });
+
+        if (!existingDocument) {
+          // If it doesn't exist, insert the new document
+          await Candidate.create(data);
+          console.log('Inserted:', data);
+        } else {
+          console.log('Duplicate data skipped:', data);
+        }
+      } catch (error) {
+        console.error('Error inserting data:', error);
+      }
+    }
+
+    console.log('Data imported to MongoDB successfully.');
+  } catch (error) {
+    console.error('Error importing data:', error);
+  } finally {
+    mongoose.connection.close();
+  }
+};
+
